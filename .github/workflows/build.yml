@@ -45,13 +45,14 @@ jobs:
 
           patches {
               about {
-                  name = "Sofascore Font ReVanced"
-                  description = "Replaces Sofascore's bundled regular sans font with Google Sans Code NFP Regular."
-                  source = "https://github.com/KR1901/sofascore-font-revanced"
-                  author = "KR1901"
-                  website = "https://github.com/KR1901/sofascore-font-revanced"
-                  license = "GNU General Public License v3.0"
-              }
+    name = "Sofascore Font ReVanced"
+    description = "Replaces Sofascore's bundled regular sans font with Google Sans Code NFP Regular."
+    source = "https://github.com/KR1901/sofascore-font-revanced"
+    author = "KR1901"
+    contact = "https://github.com/KR1901"
+    website = "https://github.com/KR1901/sofascore-font-revanced"
+    license = "GNU General Public License v3.0"
+}
           }
           EOF
 
