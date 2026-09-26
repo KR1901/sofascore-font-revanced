@@ -79,6 +79,13 @@ jobs:
 
           echo "BUILD_DIR=$BUILD_DIR" >> "$GITHUB_ENV"
 
+      - name: Update ReVanced API declarations
+        working-directory: ${{ env.BUILD_DIR }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./gradlew :patches:apiDump --no-daemon
+
       - name: Build ReVanced patch
         working-directory: ${{ env.BUILD_DIR }}
         env:
