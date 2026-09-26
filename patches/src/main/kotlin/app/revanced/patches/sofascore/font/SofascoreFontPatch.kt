@@ -9,13 +9,13 @@ val sofascoreGoogleSansCodePatch = resourcePatch(
 ) {
     compatibleWith("com.sofascore.results"("26.09.14"))
 
-    apply {
-        val target = context.get("res/font/sofascore_sans_regular.otf")
+    execute {
+        val target = get("res/font/sofascore_sans_regular.otf")
 
         val replacement = requireNotNull(
-            currentClassLoader.getResourceAsStream(
+            object {}.javaClass.classLoader.getResourceAsStream(
                 "fonts/GoogleSansCodeNerdFontPropo-Regular.ttf",
-            ),
+            )
         ) {
             "Replacement font resource is missing."
         }
