@@ -1,66 +1,79 @@
 # Fonts
 
-The patch replaces **all nine** fonts Sofascore bundles. You choose one font from
-Google Fonts and the build fetches it, generates the weights Sofascore needs, and
-drops them into every slot.
+The patch replaces **all nine** fonts Sofascore bundles. There are two ways to
+choose the replacement, and the first one needs no rebuild at all.
 
-## Choosing the font
+## 1. Set it in ReVanced Manager (no rebuild)
 
-Put the family name — exactly as it appears on [fonts.google.com](https://fonts.google.com)
-— in [`font.txt`](font.txt):
+The patch has a **Font family** option. Type a
+[Google Fonts](https://fonts.google.com) family name into it — `Inter`,
+`Roboto Slab`, `JetBrains Mono`, whatever — and patch. The font is downloaded
+and applied on your phone while patching.
 
-```
-Inter
-```
+To try a different font, change the option and patch again. No workflow run, no
+refreshing the source, no rebuild.
 
-Then run **Actions → Build Sofascore Font Patch → Run workflow**. You can also
-type the family name into the workflow's `font` box to try one out without
-editing this file; the build writes the name it used back into `font.txt`.
+This needs a network connection while patching.
 
-That is the whole process. `Google Sans Code` is the current setting.
+## 2. Bundle it from this repository (fallback)
+
+Leave the **Font family** option blank and the patch falls back to the font
+bundled inside it, which is chosen here:
+
+1. Put the family name — exactly as it reads on fonts.google.com — in
+   [`font.txt`](font.txt).
+2. Run **Actions → Build Sofascore Font Patch → Run workflow**.
+3. Refresh the source in Manager.
+
+You can also type the family name into the workflow's `font` box instead of
+editing the file; the build writes the name it used back into `font.txt`.
+
+Use this if you want a build that works offline, or that is reproducible.
+
+The current bundled font is **Google Sans Code**.
 
 ## What gets replaced
 
 Every font resource in Sofascore's APK, by weight:
 
-| APK resource                                   | Built from |
-| ---------------------------------------------- | ---------- |
-| `res/font/sofascore_sans_regular.otf`           | weight 400 |
-| `res/font/sofascore_sans_medium.otf`            | weight 500 |
-| `res/font/sofascore_sans_bold.otf`              | weight 700 |
-| `res/font/sofascore_sans_regular_condensed.otf` | weight 400 |
-| `res/font/sofascore_sans_medium_condensed.otf`  | weight 500 |
-| `res/font/sofascore_sans_bold_condensed.otf`    | weight 700 |
-| `res/font/sofascore_mono_regular.otf`           | weight 400 |
-| `res/font/roboto_medium_numbers.ttf`            | weight 500 |
-| `res/font/optimistic_vf.ttf`                    | weight 400 |
+| APK resource                                   | Weight |
+| ---------------------------------------------- | ------ |
+| `res/font/sofascore_sans_regular.otf`           | 400    |
+| `res/font/sofascore_sans_medium.otf`            | 500    |
+| `res/font/sofascore_sans_bold.otf`              | 700    |
+| `res/font/sofascore_sans_regular_condensed.otf` | 400    |
+| `res/font/sofascore_sans_medium_condensed.otf`  | 500    |
+| `res/font/sofascore_sans_bold_condensed.otf`    | 700    |
+| `res/font/sofascore_mono_regular.otf`           | 400    |
+| `res/font/roboto_medium_numbers.ttf`            | 500    |
+| `res/font/optimistic_vf.ttf`                    | 400    |
 
-If the family you pick does not have a weight, the nearest one it does have is
-used and the build log says so — a single-weight font such as Lobster simply
-uses its one weight everywhere.
+If the family does not have a weight, the nearest one it does have is used — a
+single-weight font such as Lobster simply uses its one weight everywhere.
 
 ## Notes
 
 - **Condensed text stops being narrow.** Google Fonts families are not
   condensed, so the three condensed slots get the regular width. Text that was
   squeezed now takes full width, which can shift some layouts.
-- **Variable fonts** are handled: if Google returns one variable file rather
-  than per-weight files, it is pinned to each weight automatically.
-- **Prefer static files if you supply your own** (below). A variable font will
-  otherwise render at its default instance.
+- **Variable-only families** come back as a single file. Android renders it at
+  its default instance, so all nine slots get that one weight.
+- **Prefer static files if you supply your own** (below).
 
 ## Overriding by hand
 
-Anything in this folder ending in `.ttf` or `.otf` overrides the generated font
-of the same name, so you can replace a single slot without changing the family
-for the rest. Valid names: `regular`, `medium`, `bold`, `regular-condensed`,
+Anything in this folder ending in `.ttf` or `.otf` overrides the bundled font of
+the same name, so you can replace a single slot without changing the family for
+the rest. Valid names: `regular`, `medium`, `bold`, `regular-condensed`,
 `medium-condensed`, `bold-condensed`, `mono`, `roboto-numbers`, `optimistic`
 (e.g. `bold.ttf`). The extension on disk does not matter — Android reads the
 file's contents, not its name.
 
+These only apply when the **Font family** option is left blank.
+
 ## Licensing
 
-Whatever font you choose gets bundled into the patch and into the patched app.
-Check its licence allows redistribution — everything on Google Fonts does, most
-under the SIL Open Font License. The previous default, Google Sans Code, is
-under the OFL; see [`OFL.txt`](OFL.txt) in this folder.
+Whatever font you choose gets bundled into the patched app. Check its licence
+allows redistribution — everything on Google Fonts does, most under the SIL Open
+Font License. The bundled default, Google Sans Code, is under the OFL; see
+[`OFL.txt`](OFL.txt) in this folder.
