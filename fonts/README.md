@@ -15,6 +15,22 @@ refreshing the source, no rebuild.
 
 This needs a network connection while patching.
 
+### Getting to the option
+
+1. Enable **Settings → Advanced → Safeguards → "Allow changing patch selection
+   and options"** and accept the warning. Manager blocks option editing by
+   default; without this the screen opens read-only and the field takes no input.
+2. Select the app first — pick Sofascore under **Apps**.
+3. Find **Replace Sofascore fonts** under the **Sofascore Font ReVanced** bundle
+   and tap the small **gear icon** on its row.
+4. Type the family name into **Font family**.
+
+If typing does nothing, tick the **checkbox to the left of "Font family"** — that
+is what enables the field.
+
+Note that the options live in the patch selector. **"Applied patches"** is a
+separate, read-only screen that only lists what is already applied.
+
 ## 2. Bundle it from this repository (fallback)
 
 Leave the **Font family** option blank and the patch falls back to the font
@@ -30,7 +46,7 @@ editing the file; the build writes the name it used back into `font.txt`.
 
 Use this if you want a build that works offline, or that is reproducible.
 
-The current bundled font is **Google Sans Code**.
+The current bundled font is **Inter**.
 
 ## What gets replaced
 
@@ -75,5 +91,5 @@ These only apply when the **Font family** option is left blank.
 
 Whatever font you choose gets bundled into the patched app. Check its licence
 allows redistribution — everything on Google Fonts does, most under the SIL Open
-Font License. The bundled default, Google Sans Code, is under the OFL; see
-[`OFL.txt`](OFL.txt) in this folder.
+Font License. `OFL.txt` in this folder covers the Google Sans Code default that
+was previously used.
