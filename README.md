@@ -15,18 +15,19 @@ overwrites all of them with the weights of the font you pick.
 
 ## Choosing a font
 
-1. Pick a font on [fonts.google.com](https://fonts.google.com) and note its
-   family name (e.g. `Inter`, `Roboto Slab`, `JetBrains Mono`).
-2. Put that name in [`fonts/font.txt`](fonts/font.txt) — or skip this and type
-   it into the workflow's `font` box.
-3. Run **Actions → Build Sofascore Font Patch → Run workflow**.
+**Set it in ReVanced Manager.** The patch has a **Font family** option. Type any
+Google Fonts family name into it — `Inter`, `Roboto Slab`, `JetBrains Mono` — and
+patch. The font is fetched and applied on your phone while patching, so trying a
+different one means changing the option and patching again. No rebuild, no
+refreshing the source.
 
-The build fetches the font from Google Fonts, generates the weights Sofascore
-uses, and packs them into the bundle. The name used is written back to
-`fonts/font.txt`. Full details, including how to override a single slot by hand,
-are in [`fonts/README.md`](fonts/README.md).
+Leave the option blank and the patch falls back to the font bundled inside it,
+which is chosen in [`fonts/font.txt`](fonts/font.txt) and baked in by the
+workflow. That path works offline and is reproducible.
 
-The current setting is **Google Sans Code**.
+Details, including the nine resources covered and the condensed caveat, are in
+[`fonts/README.md`](fonts/README.md). The current bundled font is
+**Google Sans Code**.
 
 ## Installing with ReVanced Manager (2.6.0+)
 
@@ -37,8 +38,8 @@ The current setting is **Google Sans Code**.
    https://raw.githubusercontent.com/KR1901/sofascore-font-revanced/main/patches.json
    ```
 
-3. Refresh sources, select **Sofascore**, enable **Replace Sofascore fonts** and
-   patch as usual.
+3. Refresh sources, select **Sofascore**, enable **Replace Sofascore fonts**, set
+   the font you want, and patch as usual.
 
 > ReVanced Manager does not officially support third-party patch sources. If your
 > build refuses to load the source, try a manager that allows custom bundles (for
@@ -61,14 +62,15 @@ that.
 - Google Fonts families have no condensed width, so the three condensed slots
   are filled with the regular width. Text that was narrow becomes full width,
   which can shift some layouts.
-- Whatever font you pick is bundled into the patch and into the patched app, so
-  it has to be redistributable. Everything on Google Fonts is.
+- Whatever font you pick is bundled into the patched app, so it has to be
+  redistributable. Everything on Google Fonts is.
 
 ## Building a release
 
-Go to **Actions → Build Sofascore Font Patch → Run workflow**. The workflow
-builds the `.rvp`, publishes it as a GitHub release, and rewrites `patches.json`
-to point at it.
+Only needed for the bundled-font path. Go to
+**Actions → Build Sofascore Font Patch → Run workflow**. The workflow builds the
+`.rvp`, publishes it as a GitHub release, and rewrites `patches.json` to point at
+it.
 
 ## License
 
