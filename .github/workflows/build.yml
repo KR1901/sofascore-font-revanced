@@ -128,7 +128,8 @@ jobs:
 
           # Without DEX the bundle builds fine but cannot be loaded by ReVanced
           # Manager, which then fails with EmptyMultiDexContainerException.
-          unzip -l "$RVP" | grep -qE '(^|/)classes[^/]*\.dex' \
+          # Match anywhere in the line: unzip -l pads the filename into a column.
+          unzip -l "$RVP" | grep -qE 'classes[0-9]*\.dex' \
             || { echo "::error::bundle contains no DEX; ReVanced Manager cannot load it"; exit 1; }
 
           # Fail loudly rather than shipping template leftovers.
