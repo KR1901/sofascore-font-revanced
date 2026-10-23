@@ -102,11 +102,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew :patches:apiDump --no-daemon
 
-      - name: Build ReVanced patch
+      # ReVanced Manager loads patch bundles by reading DEX from them, so the
+      # bundle must be built with the buildAndroid task: it runs D8 over the jar
+      # and merges classes.dex in. Plain `jar` (and `build`) only packs .class
+      # files, which Manager rejects with EmptyMultiDexContainerException.
+      - name: Build ReVanced patch (Android bundle)
         working-directory: ${{ env.BUILD_DIR }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew build --no-daemon
+        run: ./gradlew :patches:buildAndroid --no-daemon
 
       - name: Verify bundle contents
         shell: bash
@@ -121,6 +125,11 @@ jobs:
 
           echo "Bundle: $RVP"
           unzip -l "$RVP"
+
+          # Without DEX the bundle builds fine but cannot be loaded by ReVanced
+          # Manager, which then fails with EmptyMultiDexContainerException.
+          unzip -l "$RVP" | grep -qE '(^|/)classes[^/]*\.dex' \
+            || { echo "::error::bundle contains no DEX; ReVanced Manager cannot load it"; exit 1; }
 
           # Fail loudly rather than shipping template leftovers.
           if unzip -l "$RVP" | grep -qiE 'patches/example|extension\.rve'; then
