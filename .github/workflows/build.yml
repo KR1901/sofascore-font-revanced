@@ -8,8 +8,16 @@ permissions:
 
 env:
   # Pinned so builds are reproducible. Bump deliberately.
+  #
+  # This must be a template that targets patcher 22.x. ReVanced Manager 2.6.0
+  # ships patcher 22.0.2-dev.1, which has no `ResourcePatch` class: the patch
+  # API was reworked in 22.0.0 so `resourcePatch {}` returns `Patch`. Building
+  # against the older template (patcher 21.x) produces a bundle whose patch
+  # getter returns `ResourcePatch`, which Manager then fails to load with
+  # NoClassDefFoundError. The template's `main` branch is still on 21.0.0; the
+  # `dev` branch is the one on patcher 22.
   TEMPLATE_REPO: https://github.com/ReVanced/revanced-patches-template.git
-  TEMPLATE_SHA: bd4b564fc0fc8f7ade8dcd41eb4aaaf59adad6ae
+  TEMPLATE_SHA: 9abc54a4ea849f1ba38c33ea1fd141bc87125d86
   # Google Sans Code upstream release and the fonttools used to pin the
   # variable font to its Regular instance.
   FONT_VERSION: v7.001
@@ -47,7 +55,7 @@ jobs:
 
           # Drop the template's example patch and its unused extension module so
           # they do not ship inside the bundle.
-          rm -rf "$BUILD_DIR/patches/src/main/kotlin/app/revanced/patches/example"
+          rm -rf "$BUILD_DIR/patches/src/main/kotlin/app/revanced/patches/com"
           rm -rf "$BUILD_DIR/extensions"
 
           cp patches/src/main/kotlin/app/revanced/patches/sofascore/font/SofascoreFontPatch.kt \
@@ -96,12 +104,11 @@ jobs:
 
           echo "BUILD_DIR=$BUILD_DIR" >> "$GITHUB_ENV"
 
-      - name: Update ReVanced API declarations
-        working-directory: ${{ env.BUILD_DIR }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew :patches:apiDump --no-daemon
-
+      # The template's settings declares the ReVanced GitHub Packages repositories
+      # with `credentials(PasswordCredentials::class)`, which Gradle resolves from
+      # the `githubPackagesUsername` / `githubPackagesPassword` project properties.
+      # Without these the gradle plugin and app.revanced:patcher cannot be resolved.
+      #
       # ReVanced Manager loads patch bundles by reading DEX from them, so the
       # bundle must be built with the buildAndroid task: it runs D8 over the jar
       # and merges classes.dex in. Plain `jar` (and `build`) only packs .class
@@ -110,6 +117,8 @@ jobs:
         working-directory: ${{ env.BUILD_DIR }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORG_GRADLE_PROJECT_githubPackagesUsername: ${{ github.actor }}
+          ORG_GRADLE_PROJECT_githubPackagesPassword: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew :patches:buildAndroid --no-daemon
 
       - name: Verify bundle contents
@@ -133,7 +142,7 @@ jobs:
             || { echo "::error::bundle contains no DEX; ReVanced Manager cannot load it"; exit 1; }
 
           # Fail loudly rather than shipping template leftovers.
-          if unzip -l "$RVP" | grep -qiE 'patches/example|extension\.rve'; then
+          if unzip -l "$RVP" | grep -qiE 'patches/(example|com)|extension\.rve'; then
             echo "::error::example patch or extension leaked into the bundle"
             exit 1
           fi
