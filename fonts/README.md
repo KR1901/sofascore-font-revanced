@@ -1,52 +1,66 @@
-# Custom fonts
+# Fonts
 
-Drop font files in **this folder** to change what the patch installs. The build
-copies any `.ttf` or `.otf` here into the patch bundle, overriding the built-in
-defaults by filename. No code change is needed — add the file, re-run the
-workflow, and refresh the source in ReVanced Manager.
+The patch replaces **all nine** fonts Sofascore bundles. You choose one font from
+Google Fonts and the build fetches it, generates the weights Sofascore needs, and
+drops them into every slot.
 
-## Which file replaces what
+## Choosing the font
 
-Each name below maps to one of Sofascore's own font resources. Only the first
-three exist by default; the rest are applied only if you provide them.
+Put the family name — exactly as it appears on [fonts.google.com](https://fonts.google.com)
+— in [`font.txt`](font.txt):
 
-| File to add here         | Replaces in the app                             | Default |
-| ------------------------ | ----------------------------------------------- | ------- |
-| `regular.ttf`            | `res/font/sofascore_sans_regular.otf`            | yes     |
-| `medium.ttf`             | `res/font/sofascore_sans_medium.otf`             | yes     |
-| `bold.ttf`               | `res/font/sofascore_sans_bold.otf`               | yes     |
-| `regular-condensed.ttf`  | `res/font/sofascore_sans_regular_condensed.otf`  | no      |
-| `medium-condensed.ttf`   | `res/font/sofascore_sans_medium_condensed.otf`   | no      |
-| `bold-condensed.ttf`     | `res/font/sofascore_sans_bold_condensed.otf`     | no      |
-| `mono.ttf`               | `res/font/sofascore_mono_regular.otf`            | no      |
-| `roboto-numbers.ttf`     | `res/font/roboto_medium_numbers.ttf`             | no      |
+```
+Inter
+```
 
-The extension does not matter — Android reads the file's contents, not its name,
-so a `.ttf` dropped in as `regular.ttf` is fine even though the app's resource
-ends in `.otf`.
+Then run **Actions → Build Sofascore Font Patch → Run workflow**. You can also
+type the family name into the workflow's `font` box to try one out without
+editing this file; the build writes the name it used back into `font.txt`.
 
-## Using a different font
+That is the whole process. `Google Sans Code` is the current setting.
 
-1. Get the font you want, ideally one file per weight (Regular, Medium, Bold).
-2. Rename them to `regular.ttf`, `medium.ttf`, `bold.ttf` and add them here.
-3. Re-run **Actions → Build Sofascore Font Patch → Run workflow**.
+## What gets replaced
 
-Prefer static (non-variable) `.ttf`/`.otf` files. A variable font will render at
-whatever its default instance is.
+Every font resource in Sofascore's APK, by weight:
 
-## Coverage
+| APK resource                                   | Built from |
+| ---------------------------------------------- | ---------- |
+| `res/font/sofascore_sans_regular.otf`           | weight 400 |
+| `res/font/sofascore_sans_medium.otf`            | weight 500 |
+| `res/font/sofascore_sans_bold.otf`              | weight 700 |
+| `res/font/sofascore_sans_regular_condensed.otf` | weight 400 |
+| `res/font/sofascore_sans_medium_condensed.otf`  | weight 500 |
+| `res/font/sofascore_sans_bold_condensed.otf`    | weight 700 |
+| `res/font/sofascore_mono_regular.otf`           | weight 400 |
+| `res/font/roboto_medium_numbers.ttf`            | weight 500 |
+| `res/font/optimistic_vf.ttf`                    | weight 400 |
 
-Sofascore uses several fonts. Anything you do not override keeps the original:
+If the family you pick does not have a weight, the nearest one it does have is
+used and the build log says so — a single-weight font such as Lobster simply
+uses its one weight everywhere.
 
-- `regular` / `medium` / `bold` cover the bulk of the interface.
-- The **condensed** variants are used where space is tight. Google Sans Code has
-  no condensed width, so they are left alone by default. If you would rather
-  everything match, add `regular.ttf` copies under the condensed names too —
-  the text will no longer be narrow, which can shift layouts.
-- `mono.ttf` and `roboto-numbers.ttf` are used for scores and tables.
+## Notes
+
+- **Condensed text stops being narrow.** Google Fonts families are not
+  condensed, so the three condensed slots get the regular width. Text that was
+  squeezed now takes full width, which can shift some layouts.
+- **Variable fonts** are handled: if Google returns one variable file rather
+  than per-weight files, it is pinned to each weight automatically.
+- **Prefer static files if you supply your own** (below). A variable font will
+  otherwise render at its default instance.
+
+## Overriding by hand
+
+Anything in this folder ending in `.ttf` or `.otf` overrides the generated font
+of the same name, so you can replace a single slot without changing the family
+for the rest. Valid names: `regular`, `medium`, `bold`, `regular-condensed`,
+`medium-condensed`, `bold-condensed`, `mono`, `roboto-numbers`, `optimistic`
+(e.g. `bold.ttf`). The extension on disk does not matter — Android reads the
+file's contents, not its name.
 
 ## Licensing
 
-Whatever font you add here gets bundled into the patch and into the patched app.
-Make sure its licence allows redistribution. The default font (Google Sans Code)
-is under the SIL Open Font License 1.1 — see `OFL.txt` in this folder.
+Whatever font you choose gets bundled into the patch and into the patched app.
+Check its licence allows redistribution — everything on Google Fonts does, most
+under the SIL Open Font License. The previous default, Google Sans Code, is
+under the OFL; see [`OFL.txt`](OFL.txt) in this folder.
