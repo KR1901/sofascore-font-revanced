@@ -2,6 +2,11 @@ name: Build Sofascore Font Patch
 
 on:
   workflow_dispatch:
+    inputs:
+      font:
+        description: "Google Fonts family name, e.g. Inter. Leave blank to use fonts/font.txt."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -18,12 +23,8 @@ env:
   # `dev` branch is the one on patcher 22.
   TEMPLATE_REPO: https://github.com/ReVanced/revanced-patches-template.git
   TEMPLATE_SHA: 9abc54a4ea849f1ba38c33ea1fd141bc87125d86
-  # Default font: the upstream Google Sans Code release, and the fonttools used
-  # to pin the variable font to the weights Sofascore uses.
-  #
-  # These only apply to the defaults. To use a different font, drop files into
-  # the repository's fonts/ folder -- see fonts/README.md.
-  FONT_VERSION: v7.001
+  # Used to pin a variable font to the weights Sofascore needs, and to sanity
+  # check the files Google Fonts hands back.
   FONTTOOLS_VERSION: "4.66.1"
 
 jobs:
@@ -43,6 +44,8 @@ jobs:
 
       - name: Prepare official ReVanced template
         shell: bash
+        env:
+          INPUT_FONT: ${{ inputs.font }}
         run: |
           set -euo pipefail
 
@@ -64,45 +67,139 @@ jobs:
           cp patches/src/main/kotlin/app/revanced/patches/sofascore/font/SofascoreFontPatch.kt \
             "$PATCH_DIR/SofascoreFontPatch.kt"
 
-          # --- Fonts ---------------------------------------------------------
-          # Defaults: Google Sans Code, instanced to the weights Sofascore uses.
-          # Files dropped into this repository's fonts/ folder override them by
-          # name, so swapping the font needs no code change.
+          # --- Which font? ---------------------------------------------------
+          # The workflow input wins; otherwise fonts/font.txt in this repository.
+          FONT_FAMILY="$INPUT_FONT"
+          if [ -z "$FONT_FAMILY" ] && [ -f fonts/font.txt ]; then
+            FONT_FAMILY="$(tr -d '\r\n' < fonts/font.txt | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          fi
+          if [ -z "$FONT_FAMILY" ]; then
+            FONT_FAMILY="Google Sans Code"
+          fi
+
+          echo "Building with font: $FONT_FAMILY"
+          echo "FONT_FAMILY=$FONT_FAMILY" >> "$GITHUB_ENV"
+
+          # --- Fetch it from Google Fonts ------------------------------------
+          python3 -m pip install --quiet "fonttools==${FONTTOOLS_VERSION}"
+
           STAGE="$RUNNER_TEMP/fonts"
           mkdir -p "$STAGE"
 
-          curl -fL \
-            "https://github.com/googlefonts/googlesans-code/releases/download/${FONT_VERSION}/GoogleSansCode-Android-${FONT_VERSION}.zip" \
-            -o "$RUNNER_TEMP/gsc.zip"
-
-          mkdir -p "$RUNNER_TEMP/gsc"
-          unzip -q "$RUNNER_TEMP/gsc.zip" -d "$RUNNER_TEMP/gsc"
-
-          python3 -m pip install --quiet "fonttools==${FONTTOOLS_VERSION}"
-
-          GSC_SRC="$RUNNER_TEMP/gsc/GoogleSansCode[MONO,wght].ttf" STAGE="$STAGE" \
+          FONT_FAMILY="$FONT_FAMILY" STAGE="$STAGE" \
           python3 - <<'PY'
           import os
-          from fontTools.ttLib import TTFont
-          from fontTools.varLib import instancer
+          import re
+          import shutil
+          import sys
+          import urllib.parse
+          import urllib.request
 
-          source = os.environ["GSC_SRC"]
+          # Sofascore's font resources, each mapped to the weight we want for it.
+          TARGETS = {
+              "regular.ttf": 400,
+              "medium.ttf": 500,
+              "bold.ttf": 700,
+              "regular-condensed.ttf": 400,
+              "medium-condensed.ttf": 500,
+              "bold-condensed.ttf": 700,
+              "mono.ttf": 400,
+              "roboto-numbers.ttf": 500,
+              "optimistic.ttf": 400,
+          }
+
+          UA = "Mozilla/5.0 (X11; Linux x86_64)"
+
+          def fetch(url):
+              request = urllib.request.Request(url, headers={"User-Agent": UA})
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  return response.read()
+
+          family = os.environ["FONT_FAMILY"].strip()
           stage = os.environ["STAGE"]
+          os.makedirs(stage, exist_ok=True)
 
-          for name, weight in (("regular.ttf", 400), ("medium.ttf", 500), ("bold.ttf", 700)):
-              font = TTFont(source)
-              instancer.instantiateVariableFont(
-                  font, {"wght": weight, "MONO": 1}, inplace=False, updateFontNames=False
-              ).save(os.path.join(stage, name))
+          # Downloads live in a subfolder so they never end up in the bundle.
+          raw = os.path.join(stage, "raw")
+          os.makedirs(raw, exist_ok=True)
+
+          css_url = (
+              "https://fonts.googleapis.com/css2?family="
+              + urllib.parse.quote(family)
+              + ":wght@400;500;700"
+          )
+
+          try:
+              css = fetch(css_url).decode("utf-8", "replace")
+          except Exception as error:
+              sys.exit(
+                  f"Could not fetch '{family}' from Google Fonts ({error}). Check the "
+                  "family name matches fonts.google.com exactly."
+              )
+
+          # One @font-face per weight, or a single range for variable families.
+          weights = {}
+          variable_url = None
+
+          for match in re.finditer(
+              r"font-weight:\s*(\d+)(?:\s+(\d+))?;\s*src:\s*url\((https://[^)]+)\)", css
+          ):
+              low, high, url = int(match.group(1)), match.group(2), match.group(3)
+              if high is None:
+                  weights.setdefault(low, url)
+              else:
+                  variable_url = variable_url or url
+
+          if not weights and not variable_url:
+              sys.exit(f"Google Fonts returned no usable font files for '{family}'.")
+
+          sources = {}
+
+          if weights:
+              for weight, url in sorted(weights.items()):
+                  path = os.path.join(raw, f"source-{weight}.ttf")
+                  with open(path, "wb") as handle:
+                      handle.write(fetch(url))
+                  sources[weight] = path
+              print(f"'{family}': Google Fonts returned weights {sorted(weights)}.")
+          else:
+              from fontTools.ttLib import TTFont
+              from fontTools.varLib import instancer
+
+              source = os.path.join(raw, "source-variable.ttf")
+              with open(source, "wb") as handle:
+                  handle.write(fetch(variable_url))
+
+              for weight in sorted(set(TARGETS.values())):
+                  font = TTFont(source)
+                  path = os.path.join(raw, f"source-{weight}.ttf")
+                  instancer.instantiateVariableFont(
+                      font, {"wght": weight}, inplace=False, updateFontNames=False
+                  ).save(path)
+                  sources[weight] = path
+              print(f"'{family}': variable font instanced at {sorted(sources)}.")
+
+          available = sorted(sources)
+          for name, wanted in TARGETS.items():
+              chosen = min(available, key=lambda weight: abs(weight - wanted))
+              shutil.copyfile(sources[chosen], os.path.join(stage, name))
+              if chosen != wanted:
+                  print(f"  {name}: no weight {wanted}, using {chosen} instead.")
+
+          from fontTools.ttLib import TTFont
+
+          for name in TARGETS:
+              font = TTFont(os.path.join(stage, name))
+              print(f"  {name}: {font['name'].getDebugName(1)!r} {font['name'].getDebugName(2)!r}")
           PY
 
-          # Repository fonts win over the defaults.
+          # --- Anything in fonts/ still wins, by filename ---------------------
           if [ -d fonts ]; then
             find fonts -maxdepth 1 -type f \( -name '*.ttf' -o -name '*.otf' \) \
               -exec cp -f {} "$STAGE"/ \;
           fi
 
-          cp "$STAGE"/* "$FONT_DIR/"
+          cp "$STAGE"/*.ttf "$FONT_DIR/"
 
           echo "Fonts bundled:"
           ls -l "$FONT_DIR"
@@ -113,7 +210,7 @@ jobs:
           patches {
               about {
                   name = "Sofascore Font ReVanced"
-                  description = "Replaces Sofascore's bundled fonts with your own. Defaults to Google Sans Code."
+                  description = "Replaces every font Sofascore bundles with one of your choosing."
                   source = "https://github.com/KR1901/sofascore-font-revanced"
                   author = "KR1901"
                   contact = "ranvirkr19@gmail.com"
@@ -171,8 +268,11 @@ jobs:
           unzip -l "$RVP" | grep -q 'app/revanced/patches/sofascore/font/.*\.class' \
             || { echo "::error::Sofascore font patch class missing from bundle"; exit 1; }
 
-          unzip -l "$RVP" | grep -q 'fonts/regular.ttf' \
-            || { echo "::error::no replacement fonts bundled"; exit 1; }
+          for font in regular medium bold regular-condensed medium-condensed \
+                      bold-condensed mono roboto-numbers optimistic; do
+            unzip -l "$RVP" | grep -q "fonts/${font}.ttf" \
+              || { echo "::error::fonts/${font}.ttf missing from bundle"; exit 1; }
+          done
 
       - name: Publish RVP release
         shell: bash
@@ -196,12 +296,15 @@ jobs:
           gh release create "v${VERSION}" "$GITHUB_WORKSPACE/patches-${VERSION}.rvp" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Sofascore Font Patch v${VERSION}" \
-            --notes "Replaces Sofascore's bundled fonts (Sofascore 26.09.14 / 26.10.12)."
+            --notes "Replaces every font Sofascore bundles with ${FONT_FAMILY} (Sofascore 26.09.14 / 26.10.12)."
 
       - name: Create ReVanced source manifest
         shell: bash
         run: |
           set -euo pipefail
+
+          # Record the font that was actually built, so the repository shows it.
+          printf '%s\n' "$FONT_FAMILY" > fonts/font.txt
 
           # created_at must be a *local* ISO datetime. ReVanced Manager deserialises
           # it into kotlinx.datetime.LocalDateTime, which rejects a trailing "Z" and
@@ -213,11 +316,12 @@ jobs:
 
           version = os.environ["VERSION"]
           repo = os.environ["GITHUB_REPOSITORY"]
+          family = os.environ["FONT_FAMILY"]
 
           manifest = {
               "version": f"v{version}",
               "created_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
-              "description": "Sofascore font patch: replaces Sofascore's bundled fonts with your own.",
+              "description": f"Sofascore font patch: replaces every bundled font with {family}.",
               "download_url": f"https://github.com/{repo}/releases/download/v{version}/patches-{version}.rvp",
               "signature_download_url": None,
           }
@@ -239,10 +343,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add patches.json
+          git add patches.json fonts/font.txt
 
           git commit \
-            -m "build: publish ReVanced patch manifest v${VERSION}" \
+            -m "build: publish ReVanced patch manifest v${VERSION} (${FONT_FAMILY})" \
             || true
 
           git push origin HEAD:main
