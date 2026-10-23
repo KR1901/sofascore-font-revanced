@@ -17,8 +17,14 @@ private class FontTarget(
     val bundled: String,
 )
 
+/**
+ * The main body font. It doubles as a canary: if this one is gone, Sofascore has moved
+ * its fonts and the list below needs revisiting.
+ */
+private const val PRIMARY_FONT = "res/font/sofascore_sans_regular.otf"
+
 private val FONT_TARGETS = listOf(
-    FontTarget("res/font/sofascore_sans_regular.otf", 400, "regular.ttf"),
+    FontTarget(PRIMARY_FONT, 400, "regular.ttf"),
     FontTarget("res/font/sofascore_sans_medium.otf", 500, "medium.ttf"),
     FontTarget("res/font/sofascore_sans_bold.otf", 700, "bold.ttf"),
     FontTarget("res/font/sofascore_sans_regular_condensed.otf", 400, "regular-condensed.ttf"),
@@ -43,9 +49,17 @@ private val FONT_FACE = Regex(
 @Suppress("unused")
 val sofascoreFontPatch = resourcePatch(
     name = "Replace Sofascore fonts",
-    description = "Replaces every font Sofascore bundles with a font from Google Fonts.",
+    description = "Replaces every font Sofascore bundles with a font from Google Fonts. " +
+        "Tested against Sofascore 26.09.14 and 26.10.12.",
 ) {
-    compatibleWith("com.sofascore.results"("26.09.14", "26.10.12"))
+    // Compatible with every version of Sofascore, including ones that do not exist yet.
+    //
+    // This patch only swaps resource files, so it does not care what the code looks like,
+    // and a patch pinned to specific versions stops being offered the moment Sofascore
+    // ships an update. The type is spelled out because `null` here means "any version" --
+    // passing no versions at all would mean "no version".
+    val target: Pair<String, Set<String>?> = "com.sofascore.results" to null
+    compatibleWith(target)
 
     val fontFamily = stringOption(
         name = "Font family",
@@ -63,13 +77,13 @@ val sofascoreFontPatch = resourcePatch(
         if (family.isEmpty()) {
             val classLoader = object {}.javaClass.classLoader
 
-            for (target in FONT_TARGETS) {
+            for (fontTarget in FONT_TARGETS) {
                 val bytes = classLoader
-                    .getResourceAsStream("fonts/${target.bundled}")
+                    .getResourceAsStream("fonts/${fontTarget.bundled}")
                     ?.use { it.readBytes() }
                     ?: continue
 
-                if (replaceFont(target.resource, bytes)) replaced++
+                if (replaceFont(fontTarget.resource, bytes)) replaced++
             }
         } else {
             val fonts = try {
@@ -84,16 +98,19 @@ val sofascoreFontPatch = resourcePatch(
 
             val available = fonts.keys.sorted()
 
-            for (target in FONT_TARGETS) {
-                val bytes = fonts[nearestWeight(available, target.weight)] ?: continue
+            for (fontTarget in FONT_TARGETS) {
+                val bytes = fonts[nearestWeight(available, fontTarget.weight)] ?: continue
 
-                if (replaceFont(target.resource, bytes)) replaced++
+                if (replaceFont(fontTarget.resource, bytes)) replaced++
             }
         }
 
+        // If even the main body font was not there, Sofascore has moved its fonts around,
+        // and failing loudly beats silently doing nothing.
         check(replaced > 0) {
-            "No fonts were replaced. Either Sofascore's font resources moved, or no " +
-                "replacement fonts were available; this patch needs updating for this version."
+            "Could not find '$PRIMARY_FONT' in this Sofascore version, so no fonts were " +
+                "replaced. Sofascore has probably renamed or moved its fonts; the resource " +
+                "list in this patch needs updating."
         }
     }
 }
