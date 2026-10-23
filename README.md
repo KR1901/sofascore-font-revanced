@@ -1,37 +1,32 @@
 # Sofascore Font ReVanced
 
-A [ReVanced](https://revanced.app) patch that replaces Sofascore's bundled fonts
-with your own. It defaults to [Google Sans Code](https://fonts.google.com/specimen/Google+Sans+Code).
+A [ReVanced](https://revanced.app) patch that replaces **every font Sofascore
+bundles** with one of your choosing from [Google Fonts](https://fonts.google.com).
 
 ## What it does
 
-Sofascore ships its UI fonts inside the APK under `res/font/`. This patch
-overwrites them with replacement fonts bundled in the patch.
+Sofascore ships nine font files inside its APK, under `res/font/`. This patch
+overwrites all of them with the weights of the font you pick.
 
 - **Patch name:** `Replace Sofascore fonts`
 - **Package:** `com.sofascore.results`
 - **Compatible versions:** `26.09.14`, `26.10.12`
 - **Bundle:** `patches-<version>.rvp`
 
-By default it replaces the three sans weights Sofascore uses — regular, medium
-and bold. The condensed, mono and numbers fonts are left alone unless you supply
-replacements; see [Changing the font](#changing-the-font).
+## Choosing a font
 
-## Changing the font
+1. Pick a font on [fonts.google.com](https://fonts.google.com) and note its
+   family name (e.g. `Inter`, `Roboto Slab`, `JetBrains Mono`).
+2. Put that name in [`fonts/font.txt`](fonts/font.txt) — or skip this and type
+   it into the workflow's `font` box.
+3. Run **Actions → Build Sofascore Font Patch → Run workflow**.
 
-The font lives in the [`fonts/`](fonts) folder of this repository. Drop a file
-in, re-run the workflow, done — no code change:
+The build fetches the font from Google Fonts, generates the weights Sofascore
+uses, and packs them into the bundle. The name used is written back to
+`fonts/font.txt`. Full details, including how to override a single slot by hand,
+are in [`fonts/README.md`](fonts/README.md).
 
-| File                 | Replaces                           | Default |
-| -------------------- | ---------------------------------- | ------- |
-| `regular.ttf`        | `sofascore_sans_regular.otf`        | yes     |
-| `medium.ttf`         | `sofascore_sans_medium.otf`         | yes     |
-| `bold.ttf`           | `sofascore_sans_bold.otf`           | yes     |
-| `mono.ttf`           | `sofascore_mono_regular.otf`        | no      |
-| `roboto-numbers.ttf` | `roboto_medium_numbers.ttf`         | no      |
-| `*-condensed.ttf`    | the three condensed variants        | no      |
-
-Full details, including the condensed caveat, are in [`fonts/README.md`](fonts/README.md).
+The current setting is **Google Sans Code**.
 
 ## Installing with ReVanced Manager (2.6.0+)
 
@@ -58,20 +53,22 @@ misleading "app isn't compatible with your phone". Merge the splits into a
 single APK first (Anti-Split M on device, or APKEditor on desktop), then patch
 that.
 
-## Building a release
-
-Go to **Actions → Build Sofascore Font Patch → Run workflow**. The workflow
-builds the `.rvp`, publishes it as a GitHub release, and rewrites `patches.json`
-to point at it.
-
 ## Notes and limitations
 
 - The patch targets fixed resource paths. If a Sofascore update renames its
   fonts, the patch skips the missing ones, and the version list has to be
   updated.
-- The default font is fetched at build time from the pinned upstream Google Sans
-  Code release and pinned to the weights Sofascore uses. Google Sans Code is
-  licensed under the SIL Open Font License 1.1 — see [`fonts/OFL.txt`](fonts/OFL.txt).
+- Google Fonts families have no condensed width, so the three condensed slots
+  are filled with the regular width. Text that was narrow becomes full width,
+  which can shift some layouts.
+- Whatever font you pick is bundled into the patch and into the patched app, so
+  it has to be redistributable. Everything on Google Fonts is.
+
+## Building a release
+
+Go to **Actions → Build Sofascore Font Patch → Run workflow**. The workflow
+builds the `.rvp`, publishes it as a GitHub release, and rewrites `patches.json`
+to point at it.
 
 ## License
 
