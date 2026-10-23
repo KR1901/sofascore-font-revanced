@@ -18,8 +18,11 @@ env:
   # `dev` branch is the one on patcher 22.
   TEMPLATE_REPO: https://github.com/ReVanced/revanced-patches-template.git
   TEMPLATE_SHA: 9abc54a4ea849f1ba38c33ea1fd141bc87125d86
-  # Google Sans Code upstream release and the fonttools used to pin the
-  # variable font to its Regular instance.
+  # Default font: the upstream Google Sans Code release, and the fonttools used
+  # to pin the variable font to the weights Sofascore uses.
+  #
+  # These only apply to the defaults. To use a different font, drop files into
+  # the repository's fonts/ folder -- see fonts/README.md.
   FONT_VERSION: v7.001
   FONTTOOLS_VERSION: "4.66.1"
 
@@ -61,8 +64,13 @@ jobs:
           cp patches/src/main/kotlin/app/revanced/patches/sofascore/font/SofascoreFontPatch.kt \
             "$PATCH_DIR/SofascoreFontPatch.kt"
 
-          # Google Sans Code is SIL OFL 1.1. Fetch the pinned upstream release and
-          # pin the variable font to its Regular instance (wght 400, monospace).
+          # --- Fonts ---------------------------------------------------------
+          # Defaults: Google Sans Code, instanced to the weights Sofascore uses.
+          # Files dropped into this repository's fonts/ folder override them by
+          # name, so swapping the font needs no code change.
+          STAGE="$RUNNER_TEMP/fonts"
+          mkdir -p "$STAGE"
+
           curl -fL \
             "https://github.com/googlefonts/googlesans-code/releases/download/${FONT_VERSION}/GoogleSansCode-Android-${FONT_VERSION}.zip" \
             -o "$RUNNER_TEMP/gsc.zip"
@@ -72,19 +80,32 @@ jobs:
 
           python3 -m pip install --quiet "fonttools==${FONTTOOLS_VERSION}"
 
-          GSC_SRC="$RUNNER_TEMP/gsc/GoogleSansCode[MONO,wght].ttf" \
+          GSC_SRC="$RUNNER_TEMP/gsc/GoogleSansCode[MONO,wght].ttf" STAGE="$STAGE" \
           python3 - <<'PY'
           import os
           from fontTools.ttLib import TTFont
           from fontTools.varLib import instancer
 
-          font = TTFont(os.environ["GSC_SRC"])
-          instancer.instantiateVariableFont(
-              font, {"wght": 400, "MONO": 1}, inplace=False, updateFontNames=False
-          ).save("GoogleSansCode-Regular.ttf")
+          source = os.environ["GSC_SRC"]
+          stage = os.environ["STAGE"]
+
+          for name, weight in (("regular.ttf", 400), ("medium.ttf", 500), ("bold.ttf", 700)):
+              font = TTFont(source)
+              instancer.instantiateVariableFont(
+                  font, {"wght": weight, "MONO": 1}, inplace=False, updateFontNames=False
+              ).save(os.path.join(stage, name))
           PY
 
-          cp GoogleSansCode-Regular.ttf "$FONT_DIR/GoogleSansCode-Regular.ttf"
+          # Repository fonts win over the defaults.
+          if [ -d fonts ]; then
+            find fonts -maxdepth 1 -type f \( -name '*.ttf' -o -name '*.otf' \) \
+              -exec cp -f {} "$STAGE"/ \;
+          fi
+
+          cp "$STAGE"/* "$FONT_DIR/"
+
+          echo "Fonts bundled:"
+          ls -l "$FONT_DIR"
 
           cat > "$BUILD_DIR/patches/build.gradle.kts" <<'EOF'
           group = "app.revanced"
@@ -92,7 +113,7 @@ jobs:
           patches {
               about {
                   name = "Sofascore Font ReVanced"
-                  description = "Replaces Sofascore's bundled regular sans font with Google Sans Code Regular."
+                  description = "Replaces Sofascore's bundled fonts with your own. Defaults to Google Sans Code."
                   source = "https://github.com/KR1901/sofascore-font-revanced"
                   author = "KR1901"
                   contact = "ranvirkr19@gmail.com"
@@ -150,8 +171,8 @@ jobs:
           unzip -l "$RVP" | grep -q 'app/revanced/patches/sofascore/font/.*\.class' \
             || { echo "::error::Sofascore font patch class missing from bundle"; exit 1; }
 
-          unzip -l "$RVP" | grep -q 'fonts/GoogleSansCode-Regular.ttf' \
-            || { echo "::error::font resource missing from bundle"; exit 1; }
+          unzip -l "$RVP" | grep -q 'fonts/regular.ttf' \
+            || { echo "::error::no replacement fonts bundled"; exit 1; }
 
       - name: Publish RVP release
         shell: bash
@@ -175,7 +196,7 @@ jobs:
           gh release create "v${VERSION}" "$GITHUB_WORKSPACE/patches-${VERSION}.rvp" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Sofascore Font Patch v${VERSION}" \
-            --notes "Replaces the bundled regular sans font with Google Sans Code Regular (Sofascore 26.09.14 / 26.10.12)."
+            --notes "Replaces Sofascore's bundled fonts (Sofascore 26.09.14 / 26.10.12)."
 
       - name: Create ReVanced source manifest
         shell: bash
@@ -196,7 +217,7 @@ jobs:
           manifest = {
               "version": f"v{version}",
               "created_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
-              "description": "Sofascore font patch: replaces the bundled regular sans font with Google Sans Code Regular.",
+              "description": "Sofascore font patch: replaces Sofascore's bundled fonts with your own.",
               "download_url": f"https://github.com/{repo}/releases/download/v{version}/patches-{version}.rvp",
               "signature_download_url": None,
           }
