@@ -5,16 +5,15 @@ import app.revanced.patcher.patch.resourcePatch
 @Suppress("unused")
 val sofascoreFontPatch = resourcePatch(
     name = "Replace Sofascore fonts",
-    description = "Replaces Sofascore's bundled fonts with your own. Defaults to Google Sans Code.",
+    description = "Replaces every font Sofascore bundles with one of your choosing.",
 ) {
     compatibleWith("com.sofascore.results"("26.09.14", "26.10.12"))
 
     execute {
-        // Resource inside the APK  ->  replacement font bundled under fonts/<name>.
+        // Every font resource Sofascore ships  ->  replacement bundled under fonts/<name>.
         //
-        // A target is skipped when no replacement is bundled for it, so you can cover
-        // as many or as few of Sofascore's fonts as you like: drop a file with the
-        // matching name into the repository's fonts/ folder and it takes effect.
+        // A target is skipped when no replacement is bundled for it, so the patch keeps
+        // working if a future version renames or drops one of these.
         val targets = mapOf(
             "res/font/sofascore_sans_regular.otf" to "regular.ttf",
             "res/font/sofascore_sans_medium.otf" to "medium.ttf",
@@ -24,6 +23,7 @@ val sofascoreFontPatch = resourcePatch(
             "res/font/sofascore_sans_bold_condensed.otf" to "bold-condensed.ttf",
             "res/font/sofascore_mono_regular.otf" to "mono.ttf",
             "res/font/roboto_medium_numbers.ttf" to "roboto-numbers.ttf",
+            "res/font/optimistic_vf.ttf" to "optimistic.ttf",
         )
 
         val classLoader = object {}.javaClass.classLoader
